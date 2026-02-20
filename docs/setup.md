@@ -1,78 +1,69 @@
 # Cursor Brain – Setup
 
+## How it works
+
+Cursor Brain is an **MCP server** that exposes four tools to the Cursor AI: `memory.search`, `memory.add`, `memory.delete`, and `memory.stats`. Cursor spawns the server (the `cursor-brain` command) and communicates over stdio. Memories are stored in a local SQLite database; search is hybrid (keyword via FTS5 + optional vector similarity when an API key is configured). No environment variables are required—storage defaults to `~/.cursor-brain/storage`, and optional settings go in `~/.cursor-brain/config.json`.
+
 ## Prerequisites
 
 - Node.js 18+
-- Cursor IDE (or VS Code)
-- (Optional) OpenAI API key for embeddings; without it, only FTS lexical search is used for retrieval.
+- Cursor IDE
 
-## Install and build
+## Install
 
 ```bash
-cd cursor-brain
-npm install
-npm run compile
+npm install -g cursor-brain
 ```
 
-## Extension
+Or use without global install: in your MCP config, set **Command** to `npx` and **Args** to `["-y", "cursor-brain"]`.
 
-1. **Load in Cursor**
-   - Open the `cursor-brain` folder in Cursor, or
-   - Run **Developer: Install Extension from Location...** and select the folder, or
-   - Package: `npx @vscode/vsce package --no-dependencies` and install the generated `.vsix`.
+## Add to Cursor
 
-2. **Settings (optional)**
-   - `cursorBrain.storagePath`: Directory for `memory.db`. Leave empty to use the extension’s global storage.
-   - `cursorBrain.openaiApiKey`: OpenAI API key for embeddings (or set `OPENAI_API_KEY` in the environment).
-   - `cursorBrain.defaultMemoryType`: Default when using "Remember this" (`long_term_memory`, `session_memory`, or `project_memory`).
-   - `cursorBrain.retrievalLimit`: Max memories returned by search (1–50).
-
-## MCP server
-
-So that the AI in Cursor can call `memory.search`, `memory.add`, etc., add the Cursor Brain MCP server.
-
-### Option A: Cursor Settings UI
-
-1. Open Settings (`Cmd + ,` / `Ctrl + ,`).
-2. Go to **Tools & MCP** (or **MCP**).
-3. Add new MCP server:
+1. Open **Settings** → **Tools & MCP** (or **MCP**).
+2. Add a new MCP server:
    - **Name**: `cursor-brain`
-   - **Type**: Command
-   - **Command**: `node`
-   - **Args**: `["/absolute/path/to/cursor-brain/dist/mcp/server.js"]`
-   - **Env** (optional):
-     - `CURSOR_BRAIN_STORAGE_PATH`: Directory for the DB (default: `~/.cursor-brain/storage`).
-     - `OPENAI_API_KEY`: For embeddings.
+   - **Command**: `cursor-brain` (if installed globally), or **Command**: `npx` with **Args**: `["-y", "cursor-brain"]`
+3. Restart Cursor.
 
-### Option B: Project-level config (`.cursor/mcp.json`)
-
-Create or edit `.cursor/mcp.json` in your project (or user config) and add:
+**Or** create or edit **`.cursor/mcp.json`**:
 
 ```json
 {
   "mcpServers": {
     "cursor-brain": {
-      "command": "node",
-      "args": ["/absolute/path/to/cursor-brain/dist/mcp/server.js"],
-      "env": {
-        "CURSOR_BRAIN_STORAGE_PATH": "/path/to/your/storage",
-        "OPENAI_API_KEY": "your-openai-key"
-      }
+      "command": "cursor-brain"
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/cursor-brain` with the real path to the built extension (where `dist/mcp/server.js` exists). Replace `/path/to/your/storage` and `your-openai-key` as desired. Restart Cursor after changing MCP config.
+## Optional config
 
-## Environment variables (MCP server)
+Create **`~/.cursor-brain/config.json`** to set:
 
-| Variable | Description |
-|----------|-------------|
-| `CURSOR_BRAIN_STORAGE_PATH` | Directory containing `memory.db`. Default: `~/.cursor-brain/storage`. |
-| `OPENAI_API_KEY` | Used for embedding content when adding/searching memory. |
+- **storagePath**: Directory for `memory.db`. Default: `~/.cursor-brain/storage`.
+- **openaiApiKey**: Optional. Enables semantic (vector) search; omit for keyword-only search.
+
+Example:
+
+```json
+{
+  "storagePath": "/path/to/storage",
+  "openaiApiKey": "sk-..."
+}
+```
+
+## From source
+
+```bash
+git clone https://github.com/samhith123/cursor-brain.git
+cd cursor-brain
+npm install
+npm run compile
+```
+
+Then run `npm run mcp:run` or `cursor-brain`, and point Cursor’s MCP config at the `cursor-brain` command (or at `node /path/to/cursor-brain/dist/mcp/server.js`).
 
 ## Verify
 
-- **Extension**: Command palette → "Cursor Brain: Open storage folder". A folder should open; after "Remember this", `memory.db` will appear there (or in the path you set).
-- **MCP**: In Cursor chat, ask the model to call `memory.stats`. It should return counts (e.g. `{"total":0,"byType":{}}` if empty).
+In Cursor chat, ask the model to call **memory.stats**. It should return something like `{"total":0,"byType":{}}` if the server is connected and no memories are stored yet.

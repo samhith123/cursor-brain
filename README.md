@@ -1,61 +1,101 @@
 # Cursor Brain
 
-A persistent memory layer for Cursor IDE: store developer conversations and coding decisions, then retrieve relevant context automatically via hybrid (semantic + lexical) search. Works locally first with no cloud dependency.
+An MCP (Model Context Protocol) server that gives Cursor IDE a **persistent memory layer**: store conversations and coding decisions, then have the AI retrieve relevant context automatically via hybrid (semantic + lexical) search. Works locally—no cloud required.
 
-## Features
+## How it works
 
-- **Memory engine**: SQLite + FTS5 (lexical) + sqlite-vec (vector embeddings), hybrid ranking (BM25-style + cosine similarity).
-- **Memory types**: `session_memory`, `long_term_memory`, `project_memory`.
-- **MCP tools**: `memory.search`, `memory.add`, `memory.delete`, `memory.stats` so the AI can read and write memory.
-- **VS Code extension**: "Remember this" (selection or file → memory), "Open storage folder", config for storage path and OpenAI API key.
+1. **You add Cursor Brain as an MCP server** in Cursor. Cursor starts the `cursor-brain` process and talks to it over stdio.
 
-## Architecture
+2. **The AI gets four tools**: `memory.search`, `memory.add`, `memory.delete`, `memory.stats`. When you say things like “remember that we use Postgres” or “what did we decide about auth?”, the model can call these tools.
 
-- **Extension**: Commands and config; storage path; optional "Remember this" from editor.
-- **MCP server**: Stdio server exposing four tools; uses same storage and embedding provider (OpenAI or stub).
-- **Storage**: Single SQLite DB (`memory.db`) in a configurable directory (default: extension globalStorage or `~/.cursor-brain/storage` for MCP).
+3. **Memory is stored locally** in a SQLite database (default: `~/.cursor-brain/storage/memory.db`). Each entry has content, optional tags, and an optional embedding. Search uses:
+   - **Lexical search** (FTS5) for keyword match—always works.
+   - **Semantic search** (vector similarity) when you add an API key in `~/.cursor-brain/config.json`—improves relevance for natural-language queries.
 
-## Setup
+4. **No env vars required.** Storage path and optional OpenAI key can be set in `~/.cursor-brain/config.json`; otherwise defaults are used and only lexical search runs.
 
-1. **Install and build**
-   ```bash
-   npm install
-   npm run compile
-   ```
+5. **Add a Cursor rule** (e.g. in `.cursor/rules/`) so the AI is instructed to call `memory.search` when answering and `memory.add` when you ask to remember something. Then the agent uses Cursor Brain by default.
 
-2. **Extension (Cursor/VS Code)**
-   - Open the project in Cursor; run the Extension Development Host, or package and install the VSIX.
-   - Set `cursorBrain.storagePath` and `cursorBrain.openaiApiKey` (or `OPENAI_API_KEY`) if you want embeddings for "Remember this".
+## Install
 
-3. **MCP server (for AI to use memory)**
-   - Add the MCP server in Cursor (Settings → Tools & MCP, or `.cursor/mcp.json`).
-   - Example config: see [docs/setup.md](docs/setup.md).
+```bash
+npm install -g cursor-brain
+```
 
-## Local testing
+Or run without installing (from this repo: `npm install && npm run compile` first):
 
-- **Run MCP server from CLI**
-  ```bash
-  npm run compile
-  npm run mcp:run
-  ```
-  Then use an MCP client or Cursor with the server configured to run this command (with optional `CURSOR_BRAIN_STORAGE_PATH` and `OPENAI_API_KEY`).
+```bash
+npx cursor-brain
+```
 
-- **Extension**
-  - F5 in VS Code/Cursor to launch Extension Development Host; run "Cursor Brain: Remember this" with text selected; run "Cursor Brain: Open storage folder".
+## Configure Cursor
 
-## Example usage
+Add the MCP server so the AI can use the tools.
 
-1. **Add memory**: In Cursor chat, ask the AI to remember something (it can call `memory.add`). Or select text and run "Cursor Brain: Remember this".
-2. **Search**: In a later chat, ask a question; the AI can call `memory.search` with your question and use the returned context in its answer.
-3. **Stats**: The AI can call `memory.stats` to report how many memories are stored.
+**Settings → Tools & MCP** (or **MCP**): add a new server with **Command**: `cursor-brain` (or **Command**: `npx`, **Args**: `["-y", "cursor-brain"]`).
 
-See [docs/usage.md](docs/usage.md) for a short walkthrough.
+Or edit **`.cursor/mcp.json`** (project or user):
+
+```json
+{
+  "mcpServers": {
+    "cursor-brain": {
+      "command": "cursor-brain"
+    }
+  }
+}
+```
+
+Restart Cursor after changing MCP config.
+
+## Optional config
+
+To use a custom storage path or enable semantic search (embeddings), create **`~/.cursor-brain/config.json`**:
+
+```json
+{
+  "storagePath": "/path/to/storage",
+  "openaiApiKey": "sk-..."
+}
+```
+
+- **storagePath**: Where `memory.db` lives. Omit to use `~/.cursor-brain/storage`.
+- **openaiApiKey**: Optional. If set, enables vector search; if omitted, only keyword (FTS) search is used.
+
+## MCP tools
+
+| Tool | Description |
+|------|-------------|
+| **memory.search** | Hybrid search; returns relevant memories for a query. |
+| **memory.add** | Store a memory (type: `session_memory`, `long_term_memory`, or `project_memory`). |
+| **memory.delete** | Delete by id or ids. |
+| **memory.stats** | Return total count and counts by type. |
+
+## Make the AI use it by default
+
+Add a Cursor rule (e.g. `.cursor/rules/cursor-brain.mdc`) with `alwaysApply: true` that tells the agent to:
+
+- Call **memory.search** with the user’s question when answering, to pull in relevant past context.
+- Call **memory.add** when the user asks to remember something or when recording an important decision.
+
+See [docs/usage.md](docs/usage.md) for example prompts and flows.
+
+## From source
+
+```bash
+git clone https://github.com/samhith123/cursor-brain.git
+cd cursor-brain
+npm install
+npm run compile
+```
+
+Run the server with `npm run mcp:run` or `cursor-brain`, and point Cursor’s MCP config at the `cursor-brain` command (or at `node /path/to/cursor-brain/dist/mcp/server.js`).
 
 ## Docs
 
-- [docs/setup.md](docs/setup.md) – Step-by-step setup and env vars.
-- [docs/usage.md](docs/usage.md) – Example flows and MCP tool usage.
+- [docs/setup.md](docs/setup.md) – Setup and config.
+- [docs/usage.md](docs/usage.md) – Example usage and flows.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details. Copyright (c) 2026 Samhith Gardas.
+MIT. See [LICENSE](LICENSE). Copyright (c) 2026 Samhith Gardas.
