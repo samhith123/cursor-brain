@@ -16,15 +16,16 @@
     "node": ">=18"
   },
   "bin": {
-    "cursor-brain": "./dist/mcp/server.js"
+    "cursor-brain": "./bin/cursor-brain.js"
   },
   "files": [
     "dist",
+    "bin",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p . && node -e \"const fs=require('fs');const f='dist/mcp/server.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f))\"",
+    "build": "tsc -p .",
     "watch": "tsc -p . -w",
     "mcp:run": "node dist/mcp/server.js",
     "prepublishOnly": "npm run build"
