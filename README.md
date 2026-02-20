@@ -58,4 +58,4 @@ See [docs/usage.md](docs/usage.md) for a short walkthrough.
 
 ## License
 
-MIT
+MIT License. See [LICENSE](LICENSE) for details. Copyright (c) 2026 Samhith Gardas.
