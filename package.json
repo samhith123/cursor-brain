@@ -1,6 +1,6 @@
 {
   "name": "@samhithgardas/cursor-brain",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Persistent memory layer for Cursor IDE: MCP server for semantic + lexical memory search and storage",
   "author": "Samhith Gardas",
   "license": "MIT",
@@ -8,16 +8,26 @@
     "type": "git",
     "url": "https://github.com/samhith123/cursor-brain.git"
   },
-  "bugs": { "url": "https://github.com/samhith123/cursor-brain/issues" },
+  "bugs": {
+    "url": "https://github.com/samhith123/cursor-brain/issues"
+  },
   "homepage": "https://github.com/samhith123/cursor-brain#readme",
-  "engines": { "node": ">=18" },
-  "bin": { "cursor-brain": "./dist/mcp/server.js" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "cursor-brain": "./dist/mcp/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-"build": "tsc -p .",
-"watch": "tsc -p . -w",
-"mcp:run": "node dist/mcp/server.js",
-"prepublishOnly": "npm run build"
+    "build": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "mcp:run": "node dist/mcp/server.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
