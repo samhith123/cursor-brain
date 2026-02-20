@@ -5,16 +5,23 @@ An MCP (Model Context Protocol) server that gives Cursor IDE a **persistent memo
 ## How it works
 
 1. **You add Cursor Brain as an MCP server** in Cursor. Cursor starts the `cursor-brain` process and talks to it over stdio.
-
 2. **The AI gets four tools**: `memory.search`, `memory.add`, `memory.delete`, `memory.stats`. When you say things like “remember that we use Postgres” or “what did we decide about auth?”, the model can call these tools.
-
 3. **Memory is stored locally** in a SQLite database (default: `~/.cursor-brain/storage/memory.db`). Each entry has content, optional tags, and an optional embedding. Search uses:
-   - **Lexical search** (FTS5) for keyword match—always works.
-   - **Semantic search** (vector similarity) when you add an API key in `~/.cursor-brain/config.json`—improves relevance for natural-language queries.
-
+  - **Lexical search** (FTS5) for keyword match—always works.
+  - **Semantic search** (vector similarity) when you add an API key in `~/.cursor-brain/config.json`—improves relevance for natural-language queries.
 4. **No env vars required.** Storage path and optional OpenAI key can be set in `~/.cursor-brain/config.json`; otherwise defaults are used and only lexical search runs.
-
 5. **Add a Cursor rule** (e.g. in `.cursor/rules/`) so the AI is instructed to call `memory.search` when answering and `memory.add` when you ask to remember something. Then the agent uses Cursor Brain by default.
+
+```text
+# Integrate cursor‑brain memory tools with the agent
+
+Whenever generating answers or code:
+
+- Before answering, call the MCP tool `memory.search` with the user’s query (so the agent retrieves relevant memories).
+- When the user asks to remember something, call the MCP tool `memory.add` with that content.
+- Use `memory.delete` when the user requests forgetting something or cleaning up.
+- Use `memory.stats` to gather internal memory metrics when helpful.
+```
 
 ## Install
 
@@ -34,7 +41,7 @@ Add the MCP server so the AI can use the tools.
 
 **Settings → Tools & MCP** (or **MCP**): add a new server with **Command**: `cursor-brain` (or **Command**: `npx`, **Args**: `["-y", "cursor-brain"]`).
 
-Or edit **`.cursor/mcp.json`** (project or user):
+Or edit `**.cursor/mcp.json`** (project or user):
 
 ```json
 {
@@ -50,7 +57,7 @@ Restart Cursor after changing MCP config.
 
 ## Optional config
 
-To use a custom storage path or enable semantic search (embeddings), create **`~/.cursor-brain/config.json`**:
+To use a custom storage path or enable semantic search (embeddings), create `**~/.cursor-brain/config.json**`:
 
 ```json
 {
@@ -64,12 +71,14 @@ To use a custom storage path or enable semantic search (embeddings), create **`~
 
 ## MCP tools
 
-| Tool | Description |
-|------|-------------|
-| **memory.search** | Hybrid search; returns relevant memories for a query. |
-| **memory.add** | Store a memory (type: `session_memory`, `long_term_memory`, or `project_memory`). |
-| **memory.delete** | Delete by id or ids. |
-| **memory.stats** | Return total count and counts by type. |
+
+| Tool              | Description                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| **memory.search** | Hybrid search; returns relevant memories for a query.                             |
+| **memory.add**    | Store a memory (type: `session_memory`, `long_term_memory`, or `project_memory`). |
+| **memory.delete** | Delete by id or ids.                                                              |
+| **memory.stats**  | Return total count and counts by type.                                            |
+
 
 ## Make the AI use it by default
 
