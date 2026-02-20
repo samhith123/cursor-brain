@@ -1,0 +1,69 @@
+{
+  "name": "cursor-brain",
+  "displayName": "Cursor Brain",
+  "description": "Persistent memory layer for Cursor IDE with semantic + lexical retrieval",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Cursor Brain",
+      "properties": {
+        "cursorBrain.storagePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path for memory database. Empty = extension globalStorage."
+        },
+        "cursorBrain.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for embeddings. Or set OPENAI_API_KEY env."
+        },
+        "cursorBrain.defaultMemoryType": {
+          "type": "string",
+          "enum": ["session_memory", "long_term_memory", "project_memory"],
+          "default": "long_term_memory",
+          "description": "Default type when adding memory from command."
+        },
+        "cursorBrain.retrievalLimit": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max number of memories returned by search."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cursorBrain.rememberThis",
+        "title": "Cursor Brain: Remember this"
+      },
+      {
+        "command": "cursorBrain.openStorageFolder",
+        "title": "Cursor Brain: Open storage folder"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "vsce package --no-dependencies",
+    "mcp:run": "node dist/mcp/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "openai": "^4.0.0",
+    "sqlite-vec": "^0.1.6",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

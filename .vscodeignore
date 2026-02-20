@@ -1,0 +1,10 @@
+src/**
+node_modules/**
+.gitignore
+docs/**
+tsconfig.json
+.env*
+.cursor/**
+*.map
+**/*.ts
+!**/*.d.ts

@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Extension package
+*.vsix
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local storage (optional: remove if you want to track a sample DB)
+storage/*.db
+storage/*.db-journal
+storage/*.db-wal
+storage/*.db-shm
+
+# Logs and debug
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE and editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.swp
+*.swo
+*~
+
+# Cursor
+.cursor/
+
+# OS
+*.orig
