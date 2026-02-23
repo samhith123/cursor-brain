@@ -11,7 +11,7 @@ import { listTools, callTool } from "./tools.js";
 async function main(): Promise<void> {
   const engine = createEngine();
   const server = new Server(
-    { name: "cursor-brain", version: "0.1.0" },
+    { name: "cursor-brain", version: "0.1.5" },
     { capabilities: { tools: {} } },
   );
 
