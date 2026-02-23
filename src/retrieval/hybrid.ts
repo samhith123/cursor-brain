@@ -14,29 +14,38 @@ function minMaxNorm(scores: number[], reverse: boolean): number[] {
   const min = Math.min(...scores);
   const max = Math.max(...scores);
   const range = max - min || 1;
-  return scores.map((s) => (reverse ? 1 - (s - min) / range : (s - min) / range));
+  return scores.map((s) =>
+    reverse ? 1 - (s - min) / range : (s - min) / range,
+  );
 }
 
 export async function retrieveRelevantMemory(
   db: Database.Database,
   embeddingProvider: IEmbeddingProvider,
   query: string,
-  options: RetrieveOptions = {}
+  options: RetrieveOptions = {},
 ): Promise<MemoryEntry[]> {
   const limit = Math.min(options.limit ?? 10, 50);
   const types = options.types ?? null;
+  const embeddingDim = embeddingProvider.dimensions();
 
   const ftsResults = store.ftsSearch(db, query, limit * 2, types);
   let vectorResults: { id: string; distance: number }[] = [];
   try {
     const queryEmbedding = await embeddingProvider.embed(query);
-    vectorResults = store.vectorSearch(db, queryEmbedding, limit * 2, types);
+    vectorResults = store.vectorSearch(
+      db,
+      queryEmbedding,
+      limit * 2,
+      types,
+      embeddingDim,
+    );
   } catch {
     // No embedding; use FTS only
   }
 
   const idToFtsRank = new Map<string, number>();
-  ftsResults.forEach((r, i) => idToFtsRank.set(r.id, r.rank));
+  ftsResults.forEach((r) => idToFtsRank.set(r.id, r.rank));
   const idToVecDist = new Map<string, number>();
   vectorResults.forEach((r) => idToVecDist.set(r.id, r.distance));
 

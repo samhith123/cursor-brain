@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS memories (
   summary TEXT NOT NULL DEFAULT '',
   raw TEXT NOT NULL,
   tags TEXT NOT NULL DEFAULT '[]',
-  embedding BLOB
+  embedding BLOB,
+  embedding_dim INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type);
 CREATE INDEX IF NOT EXISTS idx_memories_timestamp ON memories(timestamp);
@@ -54,7 +55,26 @@ export function openStore(storagePath: string): Database.Database {
   const dbPath = getDbPath(storagePath);
   const db = new Database(dbPath);
   sqliteVec.load(db);
+  
+  // Migration: add embedding_dim column if missing (for existing databases)
+  // Must run before SCHEMA_SQL to avoid index creation errors
+  const tableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='memories'"
+  ).get();
+  
+  if (tableExists) {
+    const cols = db.prepare("PRAGMA table_info(memories)").all() as { name: string }[];
+    const hasEmbeddingDim = cols.some((c) => c.name === "embedding_dim");
+    if (!hasEmbeddingDim) {
+      db.exec("ALTER TABLE memories ADD COLUMN embedding_dim INTEGER");
+    }
+  }
+  
   db.exec(SCHEMA_SQL);
+  
+  // Create index after migration ensures column exists
+  db.exec("CREATE INDEX IF NOT EXISTS idx_memories_embedding_dim ON memories(embedding_dim)");
+  
   return db;
 }
 
@@ -76,7 +96,13 @@ function rowToEntry(row: {
     raw: row.raw,
     tags: JSON.parse(row.tags) as string[],
     type: row.type as MemoryType,
-    embedding: row.embedding ? new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.length / 4) : null,
+    embedding: row.embedding
+      ? new Float32Array(
+          row.embedding.buffer,
+          row.embedding.byteOffset,
+          row.embedding.length / 4,
+        )
+      : null,
   };
 }
 
@@ -89,36 +115,59 @@ export function insertMemory(
   summary: string,
   raw: string,
   tags: string[],
-  embedding: Float32Array | null
+  embedding: Float32Array | null,
+  embeddingDim: number | null,
 ): void {
   const stmt = db.prepare(`
-    INSERT INTO memories (id, type, timestamp, file_refs, summary, raw, tags, embedding)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO memories (id, type, timestamp, file_refs, summary, raw, tags, embedding, embedding_dim)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const embeddingBlob = embedding ? Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength) : null;
-  stmt.run(id, type, timestamp, JSON.stringify(fileRefs), summary, raw, JSON.stringify(tags), embeddingBlob);
+  const embeddingBlob = embedding
+    ? Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength)
+    : null;
+  stmt.run(
+    id,
+    type,
+    timestamp,
+    JSON.stringify(fileRefs),
+    summary,
+    raw,
+    JSON.stringify(tags),
+    embeddingBlob,
+    embeddingDim,
+  );
 }
 
 type MemoryRow = Parameters<typeof rowToEntry>[0];
 
 export function getById(db: Database.Database, id: string): MemoryEntry | null {
-  const row = db.prepare("SELECT * FROM memories WHERE id = ?").get(id) as MemoryRow | undefined;
+  const row = db.prepare("SELECT * FROM memories WHERE id = ?").get(id) as
+    | MemoryRow
+    | undefined;
   return row ? rowToEntry(row) : null;
 }
 
 export function deleteByIds(db: Database.Database, ids: string[]): number {
   if (ids.length === 0) return 0;
   const placeholders = ids.map(() => "?").join(",");
-  const result = db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...ids);
+  const result = db
+    .prepare(`DELETE FROM memories WHERE id IN (${placeholders})`)
+    .run(...ids);
   return result.changes;
 }
 
-export function ftsSearch(db: Database.Database, query: string, limit: number, types: MemoryType[] | null): { id: string; rank: number }[] {
+export function ftsSearch(
+  db: Database.Database,
+  query: string,
+  limit: number,
+  types: MemoryType[] | null,
+): { id: string; rank: number }[] {
   const safeQuery = query.replace(/["']/g, "").trim();
   if (!safeQuery) return [];
-  const typeFilter = types && types.length > 0
-    ? ` AND type IN (${types.map(() => "?").join(",")})`
-    : "";
+  const typeFilter =
+    types && types.length > 0
+      ? ` AND type IN (${types.map(() => "?").join(",")})`
+      : "";
   const args = types && types.length > 0 ? [...types, limit] : [limit];
   const sql = `
     SELECT m.id, bm25(memories_fts) AS rank
@@ -133,16 +182,33 @@ export function ftsSearch(db: Database.Database, query: string, limit: number, t
   return rows;
 }
 
-export function vectorSearch(db: Database.Database, embedding: Float32Array, limit: number, types: MemoryType[] | null): { id: string; distance: number }[] {
-  const blob = Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);
-  const typeFilter = types && types.length > 0
-    ? ` AND type IN (${types.map(() => "?").join(",")})`
-    : "";
-  const args = types && types.length > 0 ? [...types, blob, limit] : [blob, limit];
+export function vectorSearch(
+  db: Database.Database,
+  embedding: Float32Array,
+  limit: number,
+  types: MemoryType[] | null,
+  embeddingDim?: number,
+): { id: string; distance: number }[] {
+  const blob = Buffer.from(
+    embedding.buffer,
+    embedding.byteOffset,
+    embedding.byteLength,
+  );
+  const typeFilter =
+    types && types.length > 0
+      ? ` AND type IN (${types.map(() => "?").join(",")})`
+      : "";
+  const dimFilter = embeddingDim ? ` AND embedding_dim = ?` : "";
+  
+  const args: (string | Buffer | number)[] = [];
+  if (types && types.length > 0) args.push(...types);
+  if (embeddingDim) args.push(embeddingDim);
+  args.push(blob, limit);
+  
   const sql = `
     SELECT id, vec_distance_cosine(embedding, ?) AS distance
     FROM memories
-    WHERE embedding IS NOT NULL ${typeFilter}
+    WHERE embedding IS NOT NULL ${typeFilter}${dimFilter}
     ORDER BY distance
     LIMIT ?
   `;
@@ -151,16 +217,28 @@ export function vectorSearch(db: Database.Database, embedding: Float32Array, lim
   return rows;
 }
 
-export function getAllByIds(db: Database.Database, ids: string[]): MemoryEntry[] {
+export function getAllByIds(
+  db: Database.Database,
+  ids: string[],
+): MemoryEntry[] {
   if (ids.length === 0) return [];
   const placeholders = ids.map(() => "?").join(",");
-  const rows = db.prepare(`SELECT * FROM memories WHERE id IN (${placeholders})`).all(...ids) as MemoryRow[];
+  const rows = db
+    .prepare(`SELECT * FROM memories WHERE id IN (${placeholders})`)
+    .all(...ids) as MemoryRow[];
   return rows.map(rowToEntry);
 }
 
-export function getStats(db: Database.Database): { total: number; byType: Record<string, number> } {
-  const total = (db.prepare("SELECT COUNT(*) AS c FROM memories").get() as { c: number }).c;
-  const rows = db.prepare("SELECT type, COUNT(*) AS c FROM memories GROUP BY type").all() as { type: string; c: number }[];
+export function getStats(db: Database.Database): {
+  total: number;
+  byType: Record<string, number>;
+} {
+  const total = (
+    db.prepare("SELECT COUNT(*) AS c FROM memories").get() as { c: number }
+  ).c;
+  const rows = db
+    .prepare("SELECT type, COUNT(*) AS c FROM memories GROUP BY type")
+    .all() as { type: string; c: number }[];
   const byType: Record<string, number> = {};
   for (const r of rows) byType[r.type] = r.c;
   return { total, byType };

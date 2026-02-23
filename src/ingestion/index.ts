@@ -29,12 +29,14 @@ export async function addMemory(
 
   const textToEmbed = summary.length >= raw.length ? raw : `${summary}\n${raw}`.slice(0, 8191);
   let embedding: Float32Array | null = null;
+  let embeddingDim: number | null = null;
   try {
     embedding = await embeddingProvider.embed(textToEmbed);
-  } catch (e) {
+    embeddingDim = embeddingProvider.dimensions();
+  } catch {
     // Store without embedding; can still be found via FTS
   }
 
-  store.insertMemory(db, id, type, timestamp, fileRefs, summary, raw, tags, embedding);
+  store.insertMemory(db, id, type, timestamp, fileRefs, summary, raw, tags, embedding, embeddingDim);
   return id;
 }

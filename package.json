@@ -31,6 +31,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "better-sqlite3": "^11.0.0",
     "openai": "^4.0.0",
