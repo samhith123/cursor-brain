@@ -50,14 +50,25 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Check npm OTP
+        id: npm_otp
+        run: |
+          if [ -n "$NPM_OTP" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          NPM_OTP: ${{ secrets.NPM_OTP }}
+
       - name: Publish to npm (OTP)
-        if: ${{ secrets.NPM_OTP != '' }}
+        if: steps.npm_otp.outputs.present == 'true'
         run: npm publish --access public --provenance --otp "$NPM_OTP"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_OTP: ${{ secrets.NPM_OTP }}
       - name: Publish to npm
-        if: ${{ secrets.NPM_OTP == '' }}
+        if: steps.npm_otp.outputs.present == 'false'
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
