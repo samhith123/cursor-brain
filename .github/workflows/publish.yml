@@ -63,10 +63,10 @@ jobs:
 
       - name: Publish to npm (OTP)
         if: steps.npm_otp.outputs.present == 'true'
-        run: npm publish --access public --provenance --otp "$NPM_OTP"
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_OTP: ${{ secrets.NPM_OTP }}
+          NPM_CONFIG_OTP: ${{ secrets.NPM_OTP }}
       - name: Publish to npm
         if: steps.npm_otp.outputs.present == 'false'
         run: npm publish --access public --provenance
