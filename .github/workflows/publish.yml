@@ -53,7 +53,7 @@ jobs:
       - name: Check npm OTP
         id: npm_otp
         run: |
-          if [ -n "$NPM_OTP" ]; then
+          if [ -n "${NPM_OTP:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
