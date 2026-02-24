@@ -7,6 +7,8 @@ dist/
 
 # Extension package
 *.vsix
+cursor-brain-*/
+*.zip
 .npmrc
 
 # Environment and secrets
