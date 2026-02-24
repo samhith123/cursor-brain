@@ -15,6 +15,8 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    env:
+      NPM_OTP: ${{ secrets.NPM_OTP }}
 
     steps:
       - name: Checkout repository
@@ -50,7 +52,13 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Publish to npm (OTP)
+        if: env.NPM_OTP != ''
+        run: npm publish --access public --provenance --otp "$NPM_OTP"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
+        if: env.NPM_OTP == ''
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
