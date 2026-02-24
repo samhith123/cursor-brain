@@ -27,8 +27,7 @@
   "scripts": {
     "build": "tsc -p .",
     "watch": "tsc -p . -w",
-    "mcp:run": "node dist/mcp/server.js",
-    "prepublishOnly": "npm run build"
+    "mcp:run": "node dist/mcp/server.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.0",
