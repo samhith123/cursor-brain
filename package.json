@@ -1,6 +1,6 @@
 {
   "name": "@samhithgardas/cursor-brain",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Persistent memory layer for Cursor IDE: MCP server for semantic + lexical memory search and storage",
   "author": "Samhith Gardas",
   "license": "MIT",
