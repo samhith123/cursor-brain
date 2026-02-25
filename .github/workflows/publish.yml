@@ -1,4 +1,4 @@
-name: Publish Package
+name: CD
 
 on:
   push:
@@ -46,6 +46,6 @@ jobs:
         run: git push --follow-tags || { echo "Push failed; aborting publish"; exit 1; }
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance --tag latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
