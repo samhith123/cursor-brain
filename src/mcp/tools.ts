@@ -105,13 +105,21 @@ export async function callTool(
 
   try {
     if (name === "memory_search") {
+      // Some MCP clients pass the search text as "input", "search", "q", or "text"
+      // instead of "query". Normalize before validation.
+      const rawQuery =
+        (args as Record<string, unknown>).query ??
+        (args as Record<string, unknown>).input ??
+        (args as Record<string, unknown>).search ??
+        (args as Record<string, unknown>).q ??
+        (args as Record<string, unknown>).text;
       const parsed = z
         .object({
           query: z.string(),
           limit: z.number().min(1).max(MAX_SEARCH_LIMIT).optional(),
           types: z.array(z.enum(MEMORY_TYPES)).optional(),
         })
-        .parse(args);
+        .parse({ ...args, query: rawQuery });
       const limit = parsed.limit ?? 10;
       log(
         "memory_search",
