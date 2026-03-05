@@ -162,7 +162,8 @@ export function ftsSearch(
   limit: number,
   types: MemoryType[] | null,
 ): { id: string; rank: number }[] {
-  const safeQuery = query.replace(/["']/g, "").trim();
+  // Strip characters that are special in FTS5 MATCH syntax to prevent query errors
+  const safeQuery = query.replace(/["*^(){}[\]:,.|!-]/g, " ").replace(/\s+/g, " ").trim();
   if (!safeQuery) return [];
   const typeFilter =
     types && types.length > 0
@@ -178,8 +179,14 @@ export function ftsSearch(
     LIMIT ?
   `;
   const stmt = db.prepare(sql);
-  const rows = stmt.all(safeQuery, ...args) as { id: string; rank: number }[];
-  return rows;
+  try {
+    const rows = stmt.all(safeQuery, ...args) as { id: string; rank: number }[];
+    return rows;
+  } catch (e) {
+    const ts = new Date().toISOString();
+    console.error(`[${ts}] cursor-brain.ftsSearch error for query "${safeQuery}": ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
 }
 
 export function vectorSearch(
@@ -200,10 +207,10 @@ export function vectorSearch(
       : "";
   const dimFilter = embeddingDim ? ` AND embedding_dim = ?` : "";
   
-  const args: (string | Buffer | number)[] = [];
+  const args: (string | Buffer | number)[] = [blob];
   if (types && types.length > 0) args.push(...types);
   if (embeddingDim) args.push(embeddingDim);
-  args.push(blob, limit);
+  args.push(limit);
   
   const sql = `
     SELECT id, vec_distance_cosine(embedding, ?) AS distance
