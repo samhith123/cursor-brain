@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import type { EngineContext } from "./engine.js";
 import { validateAddMemory } from "./engine.js";
 import * as store from "../memory/store.js";
@@ -113,6 +113,14 @@ export async function callTool(
         (args as Record<string, unknown>).search ??
         (args as Record<string, unknown>).q ??
         (args as Record<string, unknown>).text;
+      if (!rawQuery) {
+        return {
+          content: text(
+            "query is required for memory_search. Please provide a search query string.",
+          ),
+          isError: true,
+        };
+      }
       const parsed = z
         .object({
           query: z.string(),
@@ -191,7 +199,14 @@ export async function callTool(
 
     return { content: text(`Unknown tool: ${name}`), isError: true };
   } catch (e) {
-    const err = e instanceof Error ? e.message : String(e);
+    let err: string;
+    if (e instanceof ZodError) {
+      err = e.issues
+        .map((i) => (i.path.length > 0 ? `${i.path.join(".")}: ${i.message}` : i.message))
+        .join("; ");
+    } else {
+      err = e instanceof Error ? e.message : String(e);
+    }
     log(name, `error: ${err}`);
     return { content: text(err), isError: true };
   }
