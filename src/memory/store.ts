@@ -163,7 +163,7 @@ export function ftsSearch(
   types: MemoryType[] | null,
 ): { id: string; rank: number }[] {
   // Strip characters that are special in FTS5 MATCH syntax to prevent query errors
-  const safeQuery = query.replace(/["*^(){}[\]:,.|!-]/g, " ").replace(/\s+/g, " ").trim();
+  const safeQuery = query.replace(/["*^(){}[\]:,.|!?-]/g, " ").replace(/\s+/g, " ").trim();
   if (!safeQuery) return [];
   const typeFilter =
     types && types.length > 0
@@ -178,13 +178,28 @@ export function ftsSearch(
     ORDER BY rank
     LIMIT ?
   `;
-  const stmt = db.prepare(sql);
+
+  // Try AND semantics first (all terms must match — best precision)
   try {
-    const rows = stmt.all(safeQuery, ...args) as { id: string; rank: number }[];
+    const rows = db.prepare(sql).all(safeQuery, ...args) as { id: string; rank: number }[];
+    if (rows.length > 0) return rows;
+  } catch (e) {
+    const ts = new Date().toISOString();
+    console.error(`[${ts}] cursor-brain.ftsSearch AND error for query "${safeQuery}": ${e instanceof Error ? e.message : String(e)}`);
+    // fall through to OR search
+  }
+
+  // Fall back to OR semantics so that queries like "what is my name?" still
+  // match a stored memory "my name is Samhith" (shares the tokens my/name/is).
+  const terms = safeQuery.split(" ").filter(Boolean);
+  if (terms.length < 1) return [];
+  const orQuery = terms.join(" OR ");
+  try {
+    const rows = db.prepare(sql).all(orQuery, ...args) as { id: string; rank: number }[];
     return rows;
   } catch (e) {
     const ts = new Date().toISOString();
-    console.error(`[${ts}] cursor-brain.ftsSearch error for query "${safeQuery}": ${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[${ts}] cursor-brain.ftsSearch error for query "${orQuery}": ${e instanceof Error ? e.message : String(e)}`);
     return [];
   }
 }
